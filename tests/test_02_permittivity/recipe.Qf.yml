@@ -1,0 +1,96 @@
+version: "2.2"
+load:
+  - as: data
+    path: $PATCH.nc
+    type: netcdf
+extract:
+  - into: df
+    from: data
+    columns:
+      - key: S11_magnitude
+        as: S11->mag
+      - key: S11_phase_angle
+        as: S11->arg
+      - key: frequency
+        as: S11->freq
+
+transform:
+  - table: df
+    with: complex.to_rectangular
+    using:
+      - mag: S11->mag
+        arg: S11->arg
+        output: S11
+  - table: df
+    with: reflection.prune_cutoff
+    using:
+      - real: S11->x
+        imag: S11->y
+        freq: S11->freq
+        near: 7.0 GHz
+        output: tTM020
+        prominence: 0.1
+        cutoff: 0.5
+      - real: S11->x
+        imag: S11->y
+        freq: S11->freq
+        near: 3.0 GHz
+        output: tTM010
+        prominence: 0.1
+        cutoff: 0.5
+  - table: df
+    with: reflection.qf_kajfez
+    using:
+      - real: tTM020->real
+        imag: tTM020->imag
+        freq: tTM020->freq
+        output: TM020
+      - real: tTM010->real
+        imag: tTM010->imag
+        freq: tTM010->freq
+        output: TM010
+plot:
+  - table: df
+    nrows: 4
+    ncols: 1
+    fig_args:
+      figsize: [8, 10]
+    ax_args:
+      - series:
+        - y: TM010->Q0
+          color: C0
+        rows: [0, 1]
+        cols: [0, 1]
+        ylabel: Q$_{r,\text{TM010}}$
+      - series:
+        - y: TM020->Q0
+          color: C1
+        rows: [1, 2]
+        cols: [0, 1]
+        ylabel: Q$_{r,\text{TM020}}$
+      - series:
+        - y: TM010->f0
+          color: C0
+        rows: [2, 3]
+        cols: [0, 1]
+        ylabel: f$_{r,\text{TM010}}$ [Hz]
+      - series:
+        - y: TM020->f0
+          color: C1
+        rows: [3, 4]
+        cols: [0, 1]
+        ylabel: f$_{r,\text{TM020}}$ [Hz]
+    save:
+      as: $PATCH.Qf.png
+save:
+   - table: df
+     as: $PATCH.Qf.pkl
+     sigma: false
+     columns:
+        - TM020
+        - TM010
+   - table: df
+     as: $PATCH.Qf.xlsx
+     columns:
+        - TM020
+        - TM010
